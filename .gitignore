@@ -1,0 +1,4 @@
+__pycache__/
+*.bat
+*.env
+part2_api_key/
