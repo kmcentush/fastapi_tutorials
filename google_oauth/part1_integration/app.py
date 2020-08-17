@@ -11,6 +11,7 @@ from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse
 from authlib.integrations.starlette_client import OAuth
 
 
+# Initialize FastAPI
 app = FastAPI(docs_url=None, redoc_url=None)
 app.add_middleware(SessionMiddleware, secret_key='!secret')
 
@@ -20,6 +21,7 @@ app.add_middleware(SessionMiddleware, secret_key='!secret')
 
 @app.get('/')
 async def home(request: Request):
+    # Try to get the user
     user = request.session.get('user')
     if user is not None:
         email = user['email']
@@ -29,12 +31,15 @@ async def home(request: Request):
             '<a href="/logout">logout</a>'
         )
         return HTMLResponse(html)
+
+    # Show the login link
     return HTMLResponse('<a href="/login">login</a>')
 
 
 # --- Google OAuth ---
 
 
+# Initialize our OAuth instance from the client ID and client secret specified in our .env file
 config = Config('.env')
 oauth = OAuth(config)
 
@@ -48,15 +53,17 @@ oauth.register(
 )
 
 
-@app.get('/login', tags=['authentication'])
+@app.get('/login', tags=['authentication'])  # Tag it as "authentication" for our docs
 async def login(request: Request):
+    # Redirect Google OAuth back to our application
     redirect_uri = request.url_for('auth')
+
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
 @app.route('/auth')
 async def auth(request: Request):
-    # Google OAuth
+    # Perform Google OAuth
     token = await oauth.google.authorize_access_token(request)
     user = await oauth.google.parse_id_token(request, token)
 
@@ -66,7 +73,7 @@ async def auth(request: Request):
     return RedirectResponse(url='/')
 
 
-@app.get('/logout', tags=['authentication'])
+@app.get('/logout', tags=['authentication'])  # Tag it as "authentication" for our docs
 async def logout(request: Request):
     # Remove the user
     request.session.pop('user', None)
@@ -77,6 +84,7 @@ async def logout(request: Request):
 # --- Dependencies ---
 
 
+# Try to get the logged in user
 async def get_user(request: Request) -> Optional[dict]:
     user = request.session.get('user')
     if user is not None:
@@ -91,13 +99,13 @@ async def get_user(request: Request) -> Optional[dict]:
 
 
 @app.route('/openapi.json')
-async def get_open_api_endpoint(request: Request, user: Optional[dict] = Depends(get_user)):
+async def get_open_api_endpoint(request: Request, user: Optional[dict] = Depends(get_user)):  # This dependency protects our endpoint!
     response = JSONResponse(get_openapi(title='FastAPI', version=1, routes=app.routes))
     return response
 
 
-@app.get('/docs', tags=['documentation'])
-async def get_documentation(request: Request, user: Optional[dict] = Depends(get_user)):
+@app.get('/docs', tags=['documentation'])  # Tag it as "documentation" for our docs
+async def get_documentation(request: Request, user: Optional[dict] = Depends(get_user)):  # This dependency protects our endpoint!
     response = get_swagger_ui_html(openapi_url='/openapi.json', title='Documentation')
     return response
 
